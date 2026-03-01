@@ -2,26 +2,48 @@ import streamlit as st
 import joblib
 import numpy as np
 
-# Load model
+# ===============================
+# Load Model & Scaler
+# ===============================
+
 model = joblib.load("aml_lr_model.pkl")
 scaler = joblib.load("aml_scaler.pkl")
 
-# 👉 YAHAN ADD KARO 👇
-st.write("Scaler expecting:", scaler.n_features_in_)
+st.title("Financial Crime Detection System")
 
-st.title("Financial Crime Detection")
+st.write("Enter Transaction Features")
+
+# ===============================
+# 12 Feature Inputs (Safe Default 0)
+# ===============================
 
 inputs = []
 
 for i in range(12):
-    inputs.append(st.number_input(f"Feature {i+1}", value=0.0))
+    inputs.append(
+        st.number_input(f"Feature {i+1}", value=0.0)
+    )
 
-if st.button("Predict"):
-    input_array = np.array(inputs).reshape(1, -1)
-    input_scaled = scaler.transform(input_array)
-    prediction = model.predict(input_scaled)
+# ===============================
+# Prediction Button
+# ===============================
 
-    if prediction[0] == 1:
-        st.error("⚠ Laundering Detected")
-    else:
-        st.success("✅ Normal Transaction")
+if st.button("Predict Fraud"):
+
+    try:
+        input_array = np.array(inputs).reshape(1, -1)
+
+        # Scale Input
+        input_scaled = scaler.transform(input_array)
+
+        # Prediction
+        prediction = model.predict(input_scaled)
+
+        # Result Display
+        if prediction[0] == 1:
+            st.error("⚠ Laundering Detected")
+        else:
+            st.success("✅ Normal Transaction")
+
+    except Exception as e:
+        st.error("Prediction Error")
