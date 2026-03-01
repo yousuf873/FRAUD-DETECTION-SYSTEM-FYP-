@@ -2,48 +2,31 @@ import streamlit as st
 import joblib
 import numpy as np
 
-# ===============================
-# Load Model & Scaler
-# ===============================
-
 model = joblib.load("aml_lr_model.pkl")
 scaler = joblib.load("aml_scaler.pkl")
+pca = joblib.load("aml_pca.pkl")
 
 st.title("Financial Crime Detection System")
 
-st.write("Enter Transaction Features")
-
-# ===============================
-# 12 Feature Inputs (Safe Default 0)
-# ===============================
-
 inputs = []
 
-for i in range(12):
-    inputs.append(
-        st.number_input(f"Feature {i+1}", value=0.0)
-    )
+for i in range(5194):
+    inputs.append(st.number_input(f"Feature {i+1}", value=0.0))
 
-# ===============================
-# Prediction Button
-# ===============================
-
-if st.button("Predict Fraud"):
+if st.button("Predict"):
 
     try:
-        input_array = np.array(inputs).reshape(1, -1)
+        x = np.array(inputs).reshape(1,-1)
 
-        # Scale Input
-        input_scaled = scaler.transform(input_array)
+        x_pca = pca.transform(x)
+        x_scaled = scaler.transform(x_pca)
 
-        # Prediction
-        prediction = model.predict(input_scaled)
+        prediction = model.predict(x_scaled)
 
-        # Result Display
-        if prediction[0] == 1:
-            st.error("⚠ Laundering Detected")
+        if prediction[0]==1:
+            st.error("Laundering Detected ⚠")
         else:
-            st.success("✅ Normal Transaction")
+            st.success("Normal Transaction ✅")
 
-    except Exception as e:
+    except:
         st.error("Prediction Error")
