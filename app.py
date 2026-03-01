@@ -2,8 +2,12 @@ import streamlit as st
 import joblib
 import numpy as np
 
+# Load model
 model = joblib.load("aml_lr_model.pkl")
 scaler = joblib.load("aml_scaler.pkl")
+
+# 👉 YAHAN ADD KARO 👇
+st.write("Scaler expecting:", scaler.n_features_in_)
 
 st.title("Financial Crime Detection")
 
