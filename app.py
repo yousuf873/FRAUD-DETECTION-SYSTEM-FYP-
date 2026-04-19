@@ -2,11 +2,14 @@ import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
+import os
 
-model = joblib.load("aml_lr_model.pkl")
-scaler = joblib.load("aml_scaler.pkl")
-label_encoders = joblib.load("aml_label_encoders.pkl")
-features = joblib.load("aml_features.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+model = joblib.load(os.path.join(BASE_DIR, "aml_lr_model.pkl"))
+scaler = joblib.load(os.path.join(BASE_DIR, "aml_scaler.pkl"))
+label_encoders = joblib.load(os.path.join(BASE_DIR, "aml_label_encoders.pkl"))
+features = joblib.load(os.path.join(BASE_DIR, "aml_features.pkl"))
 
 st.set_page_config(page_title="Financial Crime Detection", page_icon="🔍", layout="wide")
 st.title("🔍 Financial Crime Detection System")
