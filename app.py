@@ -1,59 +1,98 @@
 import streamlit as st
 import joblib
 import numpy as np
+import pandas as pd
 
-model  = joblib.load("aml_lr_model.pkl")
+model = joblib.load("aml_lr_model.pkl")
 scaler = joblib.load("aml_scaler.pkl")
-pca    = joblib.load("aml_pca.pkl")
+label_encoders = joblib.load("aml_label_encoders.pkl")
+features = joblib.load("aml_features.pkl")
 
-st.set_page_config(page_title="AML Detection", page_icon="🏦")
-st.title("🏦 Financial Crime Detection System")
-st.write("Enter transaction details below:")
+st.set_page_config(page_title="Financial Crime Detection", page_icon="🔍", layout="wide")
+st.title("🔍 Financial Crime Detection System")
+st.caption("AML — Anti Money Laundering Transaction Analyzer")
+
+with st.sidebar:
+    st.header("ℹ️ About")
+    st.info("Enter transaction details to check if it is suspicious or clean.")
+    st.metric("Model", "Logistic Regression")
+    st.metric("Features Used", "8")
+
+st.subheader("Transaction Details")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    amount           = st.number_input("💰 Transaction Amount", min_value=0.0, value=1000.0)
-    sender_account   = st.number_input("👤 Sender Account", min_value=0, value=1234567890)
-    receiver_account = st.number_input("👤 Receiver Account", min_value=0, value=9876543210)
-    payment_type     = st.selectbox("💳 Payment Type",
-                         ["Cash Deposit", "Cross-border", "Cheque", "ACH", "Wire Transfer"])
+    amount = st.number_input("💰 Transaction Amount", min_value=0.0, value=1000.0, step=100.0)
+    sender_account = st.number_input("👤 Sender Account Number", min_value=0, value=10000000)
+    receiver_account = st.number_input("🏦 Receiver Account Number", min_value=0, value=20000000)
+    payment_type = st.selectbox("💳 Payment Type", label_encoders['Payment_type'].classes_)
 
 with col2:
-    sender_location   = st.selectbox("📍 Sender Bank Location",
-                          ["UK", "UAE", "US", "EU", "Mexico", "Other"])
-    receiver_location = st.selectbox("📍 Receiver Bank Location",
-                          ["UK", "UAE", "US", "EU", "Mexico", "Other"])
-    payment_currency  = st.selectbox("💱 Payment Currency",
-                          ["UK pounds", "Dirham", "US Dollar", "Euro", "Other"])
-    received_currency = st.selectbox("💱 Received Currency",
-                          ["UK pounds", "Dirham", "US Dollar", "Euro", "Other"])
+    sender_location = st.selectbox("📍 Sender Bank Location", label_encoders['Sender_bank_location'].classes_)
+    receiver_location = st.selectbox("📍 Receiver Bank Location", label_encoders['Receiver_bank_location'].classes_)
+    payment_currency = st.selectbox("💱 Payment Currency", label_encoders['Payment_currency'].classes_)
+    received_currency = st.selectbox("💱 Received Currency", label_encoders['Received_currency'].classes_)
 
-payment_map  = {"Cash Deposit": 0, "Cross-border": 1, "Cheque": 2, "ACH": 3, "Wire Transfer": 4}
-location_map = {"UK": 0, "UAE": 1, "US": 2, "EU": 3, "Mexico": 4, "Other": 5}
-currency_map = {"UK pounds": 0, "Dirham": 1, "US Dollar": 2, "Euro": 3, "Other": 4}
+if st.button("🔎 Analyze Transaction", use_container_width=True):
 
-if st.button("🔍 Analyse Transaction"):
-    raw = np.array([[
-        amount,
-        sender_account,
-        receiver_account,
-        payment_map[payment_type],
-        location_map[sender_location],
-        location_map[receiver_location],
-        currency_map[payment_currency],
-        currency_map[received_currency]
-    ]])
+    encoded = {
+        'Amount': amount,
+        'Sender_account': sender_account,
+        'Receiver_account': receiver_account,
+        'Payment_type': label_encoders['Payment_type'].transform([payment_type])[0],
+        'Sender_bank_location': label_encoders['Sender_bank_location'].transform([sender_location])[0],
+        'Receiver_bank_location': label_encoders['Receiver_bank_location'].transform([receiver_location])[0],
+        'Payment_currency': label_encoders['Payment_currency'].transform([payment_currency])[0],
+        'Received_currency': label_encoders['Received_currency'].transform([received_currency])[0],
+    }
 
-    # Correct order: raw(8) → PCA(3) → scale → predict
-    x_pca    = pca.transform(raw)
-    x_scaled = scaler.transform(x_pca)
+    input_df = pd.DataFrame([encoded])[features]
+    input_scaled = scaler.transform(input_df)
 
-    prediction  = model.predict(x_scaled)
-    probability = model.predict_proba(x_scaled)[0][1]
+    prediction = model.predict(input_scaled)[0]
+    probability = model.predict_proba(input_scaled)[0][1]
 
     st.divider()
-    if prediction[0] == 1:
-        st.error(f"🚨 Laundering Detected ⚠️ — Confidence: {probability:.1%}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Risk Score", f"{probability:.1%}")
+    c2.metric("Prediction", "SUSPICIOUS 🚨" if prediction == 1 else "CLEAN ✅")
+    c3.metric("Confidence", f"{max(probability, 1-probability):.1%}")
+
+    if prediction == 1:
+        st.error(f"🚨 Suspicious Transaction Detected! Risk Score: {probability:.1%}")
     else:
-        st.success(f"✅ Normal Transaction — Fraud Probability: {probability:.1%}")
+        st.success(f"✅ Transaction appears clean. Risk Score: {probability:.1%}")
+
+    st.progress(float(probability))
+
+    st.subheader("Transaction Summary")
+    summary = pd.DataFrame({
+        "Field": ["Amount", "Sender Account", "Receiver Account", "Payment Type",
+                  "Sender Location", "Receiver Location", "Payment Currency", "Received Currency"],
+        "Value": [amount, sender_account, receiver_account, payment_type,
+                  sender_location, receiver_location, payment_currency, received_currency]
+    })
+    st.table(summary)
+
+    if "history" not in st.session_state:
+        st.session_state.history = []
+
+    st.session_state.history.append({
+        "Amount": amount,
+        "From": sender_location,
+        "To": receiver_location,
+        "Currency": payment_currency,
+        "Risk Score": f"{probability:.1%}",
+        "Result": "SUSPICIOUS" if prediction == 1 else "CLEAN"
+    })
+
+st.divider()
+
+if "history" in st.session_state and st.session_state.history:
+    st.subheader("📋 Transaction History (This Session)")
+    hist_df = pd.DataFrame(st.session_state.history)
+    st.dataframe(hist_df, use_container_width=True)
+
+    csv = hist_df.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Download History as CSV", csv, "transaction_history.csv", "text/csv")
